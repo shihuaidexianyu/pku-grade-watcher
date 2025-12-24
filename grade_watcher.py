@@ -8,6 +8,7 @@ import random
 import re
 from typing import List, Optional
 from datetime import datetime
+import time
 
 import requests
 
@@ -19,13 +20,17 @@ class GradeWatcher(requests.Session):
     """成绩监控器 - 负责数据获取和处理"""
     
     def __init__(self, username: str, password: str, notifier: Optional[BaseNotifier] = None,
-                 data_file: str = "course_data.json"):
+                 data_file: str = "course_data.json",
+                 request_timeout: tuple[float, float] = (5.0, 20.0),
+                 debug_http: bool = False):
         super().__init__()
         self.username = username
         self.password = password
         self.notifier = notifier
         self.course_manager = CourseManager(data_file)
         self.is_first_run = False  # 标记是否是首次运行
+        self.request_timeout = request_timeout
+        self.debug_http = debug_http
         
         # 设置请求头
         self.headers.update({
@@ -46,15 +51,38 @@ class GradeWatcher(requests.Session):
     
     def get(self, url, *args, **kwargs):
         """重写 get 方法，验证状态码"""
-        res = super().get(url, *args, **kwargs)
-        res.raise_for_status()
-        return res
+        return self._request_with_default_timeout("GET", url, *args, **kwargs)
     
     def post(self, url, *args, **kwargs):
         """重写 post 方法，验证状态码"""
-        res = super().post(url, *args, **kwargs)
-        res.raise_for_status()
-        return res
+        return self._request_with_default_timeout("POST", url, *args, **kwargs)
+
+    def _request_with_default_timeout(self, method: str, url: str, *args, **kwargs):
+        """统一给 requests 请求加默认 timeout，并在 debug 模式下打印关键信息。
+
+        说明：requests 在不传 timeout 时可能无限等待，cron 场景下会表现为“卡住”。
+        """
+        if "timeout" not in kwargs or kwargs["timeout"] is None:
+            kwargs["timeout"] = self.request_timeout
+
+        start = time.monotonic()
+        try:
+            res = super().request(method, url, *args, **kwargs)
+            res.raise_for_status()
+            if self.debug_http:
+                cost_ms = int((time.monotonic() - start) * 1000)
+                final_url = getattr(res, "url", url)
+                print(f"{'[HTTP]':<15}: {method} {url} -> {res.status_code} ({cost_ms}ms) {final_url}")
+            return res
+        except requests.exceptions.Timeout as e:
+            cost_ms = int((time.monotonic() - start) * 1000)
+            print(f"{'[HTTP]':<15}: {method} {url} 超时（{cost_ms}ms），可能是网络不通/代理问题/服务端缓慢。timeout={kwargs.get('timeout')}")
+            raise
+        except requests.exceptions.RequestException as e:
+            if self.debug_http:
+                cost_ms = int((time.monotonic() - start) * 1000)
+                print(f"{'[HTTP]':<15}: {method} {url} 请求失败（{cost_ms}ms）: {e}")
+            raise
     
     def initialize(self) -> bool:
         """

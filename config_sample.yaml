@@ -7,6 +7,16 @@ password: 123456      # 密码
 # 数据文件路径（可选，默认为 course_data.json）
 data_file: course_data.json
 
+# 网络请求超时（可选）
+# requests 默认可能无限等待，建议保留超时避免程序“卡住”
+# 写法1：两个数字分别为 (connect_timeout, read_timeout)
+request_timeout: [5, 20]
+# 写法2：单个数字表示 read_timeout（connect_timeout 固定 5s）
+# request_timeout: 20
+
+# 打印 HTTP 调试信息（可选，用于排查登录卡住/重定向）
+debug_http: false
+
 # 通知配置
 # 支持的通知类型：email, console, multi
 

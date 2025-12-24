@@ -58,11 +58,26 @@ def main():
         print("未配置通知器或配置无效，将不发送通知")
     
     # 创建成绩监控器
+    # 网络请求超时配置：requests 默认可能无限等待，因此提供可选配置，避免“卡住”。
+    timeout_cfg = config.get("request_timeout", None)
+    request_timeout = (5.0, 20.0)
+    try:
+        if isinstance(timeout_cfg, (list, tuple)) and len(timeout_cfg) == 2:
+            request_timeout = (float(timeout_cfg[0]), float(timeout_cfg[1]))
+        elif isinstance(timeout_cfg, (int, float)):
+            # 兼容写法：单个数字表示 read timeout；connect timeout 仍取 5s
+            request_timeout = (5.0, float(timeout_cfg))
+    except Exception:
+        # 配置错误时用默认值
+        request_timeout = (5.0, 20.0)
+
     watcher = GradeWatcher(
         username=config["username"],
         password=config["password"],
         notifier=notifier,
-        data_file=config.get("data_file", "course_data.json")
+        data_file=config.get("data_file", "course_data.json"),
+        request_timeout=request_timeout,
+        debug_http=bool(config.get("debug_http", False)),
     )
     
     # 执行完整工作流程

@@ -235,6 +235,15 @@ pku-grade-watcher/
    - 确认网络连接正常
    - 查看是否需要验证码（目前不支持验证码）
 
+   如果程序卡在 `"[登录] : 开始登录PKU门户..."` 不动，通常是某个网络请求在等待。
+   你可以在 `config.yaml` 中添加超时与调试输出，帮助判断是超时、网络不通、还是被重定向：
+
+   ```yaml
+   # (connect_timeout, read_timeout)
+   request_timeout: [5, 20]
+   debug_http: true
+   ```
+
 2. **通知发送失败**
    - 检查通知配置是否正确
    - 验证邮箱 SMTP、端口、安全模式与授权码是否正确
