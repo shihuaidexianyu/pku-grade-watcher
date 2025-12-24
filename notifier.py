@@ -134,7 +134,8 @@ class EmailNotifier(BaseNotifier):
 
                             <div style="padding:14px 18px;border-top:1px solid #e5e7eb;background:#fbfdff;">
                                 <div style="font-size:12px;color:#6b7280;line-height:1.6;">
-                                    本邮件由北大成绩监控系统自动发送。若你未订阅该通知，可忽略本邮件。
+                                    凡我不能创造的，我就不能理解。 -- 理查德·费曼<br/>
+                                    希望你继续保持对知识的渴望与热爱！<br/>
                                 </div>
                             </div>
                         </div>
