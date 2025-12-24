@@ -8,7 +8,7 @@
 ## ✨ 特性
 
 - 🔄 **自动监控**: 定期检查成绩更新
-- 📱 **多种通知方式**: 支持 Bark 推送、邮件通知、控制台输出
+- � **多种通知方式**: 支持 SMTP 邮件通知、控制台输出
 - 🎯 **智能去重**: 自动处理重复修读的课程
 - 📊 **详细记录**: 记录历史成绩数据和变化
 - ⚙️ **易于配置**: 基于 YAML 的简单配置
@@ -24,13 +24,15 @@
 
 ### 安装依赖
 
+推荐使用 `uv` 管理依赖和虚拟环境。
+
 ```bash
 # 克隆项目
 git clone <repository-url>
 cd pku-grade-watcher
 
-# 安装依赖
-pip install -r requirements.txt
+# 安装/同步依赖（会在项目下创建 .venv）
+uv sync
 ```
 
 ### 配置设置
@@ -41,7 +43,7 @@ pip install -r requirements.txt
 cp config_sample.yaml config.yaml
 ```
 
-2. 编辑 `config.yaml` 文件，填入您的信息：
+1. 编辑 `config.yaml` 文件，填入您的信息：
 
 ```yaml
 # 北大成绩监控配置文件
@@ -54,31 +56,32 @@ password: your_password      # 您的密码
 data_file: course_data.json
 
 # 通知配置
-# 支持的通知类型：bark, email, console, multi
+# 支持的通知类型：email, console, multi
 
-# 方式1: 只使用 Bark 推送（推荐）
-bark: 'your_bark_token'
+# 方式1: SMTP 邮件通知（推荐）
+type: email
+smtp_server: smtp.qq.com
+smtp_port: 587
+smtp_security: starttls   # starttls | ssl | plain
+smtp_timeout: 20          # 秒（可选）
+email_username: your_email@qq.com
+email_password: your_app_password
+from_email: your_email@qq.com
+to_email: target@example.com
 
-# 方式2: 只使用邮件通知
-# type: email
-# smtp_server: smtp.qq.com
-# smtp_port: 587
-# email_username: your_email@qq.com
-# email_password: your_app_password
-# from_email: your_email@qq.com
-# to_email: target@example.com
-
-# 方式3: 同时使用多种通知方式
+# 方式2: 同时使用多种通知方式（邮件 + 控制台）
 # type: multi
-# bark: 'your_bark_token'
+# console: true
 # smtp_server: smtp.qq.com
 # smtp_port: 587
+# smtp_security: starttls
+# smtp_timeout: 20
 # email_username: your_email@qq.com
 # email_password: your_app_password
 # from_email: your_email@qq.com
 # to_email: target@example.com
 
-# 方式4: 控制台输出（用于测试）
+# 方式3: 控制台输出（用于测试）
 # type: console
 ```
 
@@ -86,27 +89,21 @@ bark: 'your_bark_token'
 
 ```bash
 # 手动运行一次
-python main.py
+uv run python main.py
 
 # 或使用提供的脚本
 ./check.sh
 ```
 
-## 🔧 通知方式配置
+也可以用脚本入口：
 
-### 1. Bark 推送（推荐）
-
-Bark 是一个简单易用的 iOS 推送服务。
-
-1. 在 App Store 下载 Bark 应用
-2. 获取您的推送 token
-3. 在配置文件中设置：
-
-```yaml
-bark: 'your_bark_token'
+```bash
+uv run pku-grade-watcher
 ```
 
-### 2. 邮件通知
+## 🔧 通知方式配置
+
+### 1. 邮件通知（SMTP）
 
 支持各种邮箱服务商的 SMTP 服务。
 
@@ -114,28 +111,38 @@ bark: 'your_bark_token'
 type: email
 smtp_server: smtp.qq.com
 smtp_port: 587
+smtp_security: starttls   # starttls | ssl | plain
+smtp_timeout: 20          # 秒（可选）
 email_username: your_email@qq.com
 email_password: your_app_password  # 使用应用专用密码
 from_email: your_email@qq.com
 to_email: target@example.com
 ```
 
-### 3. 多种通知方式
+#### 安全模式说明
+
+- `starttls`：先明文连接再升级 TLS（常用 587）
+- `ssl`：直接 SSL/TLS（常用 465）
+- `plain`：不加密（不推荐，仅用于内网/调试）
+
+### 2. 多种通知方式（邮件 + 控制台）
 
 可以同时配置多种通知方式：
 
 ```yaml
 type: multi
-bark: 'your_bark_token'
+console: true
 smtp_server: smtp.qq.com
 smtp_port: 587
+smtp_security: starttls
+smtp_timeout: 20
 email_username: your_email@qq.com
 email_password: your_app_password
 from_email: your_email@qq.com
 to_email: target@example.com
 ```
 
-### 4. 控制台输出
+### 3. 控制台输出
 
 用于调试和测试：
 
@@ -156,22 +163,19 @@ crontab -e
 添加定时任务（例如每小时检查一次）：
 
 ```bash
-0 * * * * /home/xianyu/tasks/pku-grade-watcher/check.sh >> /home/xianyu/tasks/pku-grade-watcher/check.log 2>&1
+0 * * * * /home/hw/tasks/pku-grade-watcher/check.sh >> /home/hw/tasks/pku-grade-watcher/check.log 2>&1
+```
+
+如果你的 cron 环境里找不到 `uv`（PATH 很短），推荐在 crontab 顶部显式设置：
+
+```bash
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+UV_BIN=/home/hw/.local/bin/uv
 ```
 
 ### 修改脚本路径
 
-编辑 `check.sh` 文件，修改为您的实际路径：
-
-```bash
-#!/bin/bash
-
-# 进入项目目录
-cd /path/to/your/pku-grade-watcher || exit
-
-# 使用您的 Python 解释器路径
-/path/to/your/python main.py
-```
+`check.sh` 已支持在 cron 环境下运行（自动定位项目目录、用 uv 运行、避免重复并发执行）。
 
 ## 📁 项目结构
 
@@ -226,7 +230,7 @@ pku-grade-watcher/
 
 2. **通知发送失败**
    - 检查通知配置是否正确
-   - 验证 Bark token 或邮箱设置
+   - 验证邮箱 SMTP、端口、安全模式与授权码是否正确
    - 查看网络连接是否正常
 
 3. **定时任务不执行**
@@ -254,7 +258,7 @@ pku-grade-watcher/
 
 - ✨ 初始版本发布
 - 🎯 支持北大教务系统成绩监控
-- 📱 支持 Bark 推送和邮件通知
+- � 支持 SMTP 邮件通知和控制台通知
 - 🔄 实现课程去重和增量更新
 - ⏰ 支持定时任务运行
 

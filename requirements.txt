@@ -1,2 +1,4 @@
-requests>=2.25.0
+### 已迁移到 uv / pyproject.toml
+### 推荐使用：uv sync
 PyYAML>=5.4.0
+requests>=2.25.0

@@ -1,9 +1,10 @@
-"""
-通知模块 - 支持多种通知方式
+"""通知模块 - 支持 SMTP 邮件与控制台通知。
+
+已移除 Bark 推送。
 """
 
 import smtplib
-import requests
+import ssl
 from abc import ABC, abstractmethod
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -31,46 +32,28 @@ class BaseNotifier(ABC):
         pass
 
 
-class BarkNotifier(BaseNotifier):
-    """Bark推送通知器"""
-    
-    def __init__(self, token: str, icon: str = "https://cdn.arthals.ink/pku.jpg"):
-        self.token = token
-        self.icon = icon
-        self.api_url = f"https://api.day.app/{self.token}"
-    
-    def send(self, title: str, content: str, course: Optional[Course] = None) -> bool:
-        """发送Bark推送通知"""
-        try:
-            data = {
-                "title": title,
-                "body": content,
-                "icon": self.icon,
-                "level": "timeSensitive",
-            }
-            
-            response = requests.post(self.api_url, data=data, timeout=10)
-            response.raise_for_status()
-            
-            print(f"Bark通知发送成功: {title}")
-            return True
-            
-        except Exception as e:
-            print(f"Bark通知发送失败: {e}")
-            return False
-
-
 class EmailNotifier(BaseNotifier):
     """邮件通知器"""
     
-    def __init__(self, smtp_server: str, smtp_port: int, username: str, 
-                 password: str, from_email: str, to_email: str):
+    def __init__(
+        self,
+        smtp_server: str,
+        smtp_port: int,
+        username: str,
+        password: str,
+        from_email: str,
+        to_email: str,
+        security: str = "starttls",
+        timeout: int = 20,
+    ):
         self.smtp_server = smtp_server
         self.smtp_port = smtp_port
         self.username = username
         self.password = password
         self.from_email = from_email
         self.to_email = to_email
+        self.security = (security or "starttls").lower()
+        self.timeout = timeout
     
     def send(self, title: str, content: str, course: Optional[Course] = None) -> bool:
         """发送邮件通知"""
@@ -86,10 +69,33 @@ class EmailNotifier(BaseNotifier):
             msg.attach(MIMEText(email_content, 'html', 'utf-8'))
             
             # 发送邮件
-            with smtplib.SMTP(self.smtp_server, self.smtp_port) as server:
-                server.starttls()
-                server.login(self.username, self.password)
-                server.send_message(msg)
+            # security:
+            # - starttls: 先建立明文连接再升级 TLS（常见 587）
+            # - ssl: 直接 SSL/TLS（常见 465）
+            # - plain: 不加密（不推荐，仅用于内网/调试）
+            if self.security == "ssl":
+                context = ssl.create_default_context()
+                with smtplib.SMTP_SSL(
+                    self.smtp_server,
+                    self.smtp_port,
+                    timeout=self.timeout,
+                    context=context,
+                ) as server:
+                    server.login(self.username, self.password)
+                    server.send_message(msg)
+            else:
+                with smtplib.SMTP(
+                    self.smtp_server,
+                    self.smtp_port,
+                    timeout=self.timeout,
+                ) as server:
+                    server.ehlo()
+                    if self.security == "starttls":
+                        context = ssl.create_default_context()
+                        server.starttls(context=context)
+                        server.ehlo()
+                    server.login(self.username, self.password)
+                    server.send_message(msg)
             
             print(f"邮件通知发送成功: {title}")
             return True
@@ -170,11 +176,8 @@ class MultiNotifier(BaseNotifier):
 def create_notifier_from_config(config: Dict[str, Any]) -> Optional[BaseNotifier]:
     """根据配置创建通知器"""
     notifier_type = config.get('type', '').lower()
-    
-    if notifier_type == 'bark' and config.get('bark'):
-        return BarkNotifier(config['bark'])
-    
-    elif notifier_type == 'email' and all(k in config for k in 
+
+    if notifier_type == 'email' and all(k in config for k in
         ['smtp_server', 'smtp_port', 'email_username', 'email_password', 'from_email', 'to_email']):
         return EmailNotifier(
             smtp_server=config['smtp_server'],
@@ -182,7 +185,9 @@ def create_notifier_from_config(config: Dict[str, Any]) -> Optional[BaseNotifier
             username=config['email_username'],
             password=config['email_password'],
             from_email=config['from_email'],
-            to_email=config['to_email']
+            to_email=config['to_email'],
+            security=config.get('smtp_security', 'starttls'),
+            timeout=int(config.get('smtp_timeout', 20)),
         )
     
     elif notifier_type == 'console':
@@ -190,11 +195,7 @@ def create_notifier_from_config(config: Dict[str, Any]) -> Optional[BaseNotifier
     
     elif notifier_type == 'multi':
         multi_notifier = MultiNotifier()
-        
-        # 添加Bark通知
-        if config.get('bark'):
-            multi_notifier.add_notifier(BarkNotifier(config['bark']))
-        
+
         # 添加邮件通知
         if all(k in config for k in ['smtp_server', 'smtp_port', 'email_username', 
                                    'email_password', 'from_email', 'to_email']):
@@ -204,13 +205,15 @@ def create_notifier_from_config(config: Dict[str, Any]) -> Optional[BaseNotifier
                 username=config['email_username'],
                 password=config['email_password'],
                 from_email=config['from_email'],
-                to_email=config['to_email']
+                to_email=config['to_email'],
+                security=config.get('smtp_security', 'starttls'),
+                timeout=int(config.get('smtp_timeout', 20)),
             ))
+
+        # 可选：同时输出到控制台
+        if config.get('console'):
+            multi_notifier.add_notifier(ConsoleNotifier())
         
         return multi_notifier if multi_notifier.notifiers else None
-    
-    # 兼容旧版配置 - 只有bark token
-    elif config.get('bark'):
-        return BarkNotifier(config['bark'])
     
     return None

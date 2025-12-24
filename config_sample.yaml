@@ -8,29 +8,30 @@ password: 123456      # 密码
 data_file: course_data.json
 
 # 通知配置
-# 支持的通知类型：bark, email, console, multi
+# 支持的通知类型：email, console, multi
 
-# 方式1: 只使用 Bark 推送（简单配置）
-bark: 'ro7cwEn6bbbg9ffo'
+# 方式1: 只使用邮件通知（SMTP）
+type: email
+smtp_server: smtp.qq.com
+smtp_port: 587
+smtp_security: starttls   # starttls | ssl | plain
+smtp_timeout: 20          # 秒（可选）
+email_username: your_email@qq.com
+email_password: your_app_password  # 建议使用“应用专用密码/授权码”
+from_email: your_email@qq.com
+to_email: target@example.com
 
-# 方式2: 只使用邮件通知
-# type: email
-# smtp_server: smtp.qq.com
-# smtp_port: 587
-# email_username: your_email@qq.com
-# email_password: your_app_password
-# from_email: your_email@qq.com
-# to_email: target@example.com
-
-# 方式3: 同时使用多种通知方式
+# 方式2: 同时使用多种通知方式（邮件 + 控制台）
 # type: multi
-# bark: 'ro7cwEn6bbbg9ffo'
+# console: true
 # smtp_server: smtp.qq.com
 # smtp_port: 587
+# smtp_security: starttls
+# smtp_timeout: 20
 # email_username: your_email@qq.com
 # email_password: your_app_password
 # from_email: your_email@qq.com
 # to_email: target@example.com
 
-# 方式4: 控制台输出（用于测试）
+# 方式3: 控制台输出（用于测试）
 # type: console

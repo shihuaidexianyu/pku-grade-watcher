@@ -1,0 +1,17 @@
+[project]
+name = "pku-grade-watcher"
+version = "0.1.0"
+description = "Monitor PKU grade changes and send notifications (SMTP/console)."
+readme = "README.md"
+requires-python = ">=3.8"
+license = { file = "LICENSE" }
+authors = [{ name = "YuanQiiii" }]
+
+dependencies = ["PyYAML>=5.4.0", "requests>=2.25.0"]
+
+[project.scripts]
+pku-grade-watcher = "main:main"
+
+[tool.uv]
+# 让 uv 在首次使用时创建 .venv
+managed = true
