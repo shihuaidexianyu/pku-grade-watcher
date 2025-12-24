@@ -173,6 +173,13 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 UV_BIN=/home/hw/.local/bin/uv
 ```
 
+`check.sh` 默认会清理常见代理环境变量（`http_proxy/https_proxy/all_proxy` 等），避免代理导致教务系统请求或 SMTP 连接异常。
+如果你确实需要代理访问外网，可以在 crontab 里加：
+
+```bash
+KEEP_PROXY=1
+```
+
 ### 修改脚本路径
 
 `check.sh` 已支持在 cron 环境下运行（自动定位项目目录、用 uv 运行、避免重复并发执行）。

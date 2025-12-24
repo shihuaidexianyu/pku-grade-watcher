@@ -16,6 +16,14 @@ timestamp() {
 
 echo "[$(timestamp)] [check.sh] start: ${PROJECT_DIR}"
 
+# 默认取消代理（部分学校/企业代理会导致 requests/SMTP 连接异常）。
+# 如确实需要代理访问外网，可在 crontab 中设置 KEEP_PROXY=1。
+if [[ "${KEEP_PROXY:-0}" != "1" ]]; then
+	unset http_proxy https_proxy all_proxy HTTP_PROXY HTTPS_PROXY ALL_PROXY || true
+	unset no_proxy NO_PROXY || true
+	echo "[$(timestamp)] [check.sh] proxy env cleared (set KEEP_PROXY=1 to keep)"
+fi
+
 # 尽量找到 uv：cron 下 PATH 可能很短
 UV_BIN="${UV_BIN:-}"
 if [[ -z "${UV_BIN}" ]]; then
