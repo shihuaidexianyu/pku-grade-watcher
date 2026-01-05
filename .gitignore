@@ -21,5 +21,8 @@ __pycache__/
 .DS_Store
 Thumbs.db
 
-check.sh
+# 锁文件
 .check.lock
+
+# 虚拟环境
+.venv/
