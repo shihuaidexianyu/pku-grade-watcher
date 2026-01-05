@@ -17,6 +17,15 @@ request_timeout: [5, 20]
 # 打印 HTTP 调试信息（可选，用于排查登录卡住/重定向）
 debug_http: false
 
+# 失败重试（可选，建议保留默认值）
+# 作用：对网络瞬时抖动、502/503/504 等短暂异常做自动重试，减少“偶发失败”。
+# 注意：如果网络长期不可达（例如机器没出网/路由问题），重试只会延长失败耗时。
+max_retries: 3
+
+# 指数退避系数（可选）
+# 第 n 次重试前等待大致为 backoff_factor * (2^(n-1)) 秒（内部还有抖动/Retry-After）。
+backoff_factor: 0.6
+
 # 通知配置
 # 支持的通知类型：email, console, multi
 

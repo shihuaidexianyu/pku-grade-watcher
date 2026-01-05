@@ -11,6 +11,8 @@ from datetime import datetime
 import time
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from models import Course, CourseManager
 from notifier import BaseNotifier
@@ -22,7 +24,9 @@ class GradeWatcher(requests.Session):
     def __init__(self, username: str, password: str, notifier: Optional[BaseNotifier] = None,
                  data_file: str = "course_data.json",
                  request_timeout: tuple[float, float] = (5.0, 20.0),
-                 debug_http: bool = False):
+                 debug_http: bool = False,
+                 max_retries: int = 3,
+                 backoff_factor: float = 0.6):
         super().__init__()
         self.username = username
         self.password = password
@@ -31,6 +35,27 @@ class GradeWatcher(requests.Session):
         self.is_first_run = False  # 标记是否是首次运行
         self.request_timeout = request_timeout
         self.debug_http = debug_http
+        self.max_retries = int(max_retries)
+        self.backoff_factor = float(backoff_factor)
+
+        # 给 Session 配置连接池级别的重试：
+        # - 对 502/503/504 等短暂服务异常自动重试
+        # - 对 connect/read 阶段的短暂错误进行重试
+        # 说明：这解决的是“网络/服务瞬时抖动导致偶发失败”的场景。
+        retry = Retry(
+            total=self.max_retries,
+            connect=self.max_retries,
+            read=self.max_retries,
+            status=self.max_retries,
+            status_forcelist=(429, 502, 503, 504),
+            allowed_methods=("HEAD", "GET", "POST", "PUT", "DELETE", "OPTIONS"),
+            backoff_factor=self.backoff_factor,
+            respect_retry_after_header=True,
+            raise_on_status=False,
+        )
+        adapter = HTTPAdapter(max_retries=retry, pool_connections=10, pool_maxsize=10)
+        self.mount("https://", adapter)
+        self.mount("http://", adapter)
         
         # 设置请求头
         self.headers.update({
@@ -79,9 +104,9 @@ class GradeWatcher(requests.Session):
             print(f"{'[HTTP]':<15}: {method} {url} 超时（{cost_ms}ms），可能是网络不通/代理问题/服务端缓慢。timeout={kwargs.get('timeout')}")
             raise
         except requests.exceptions.RequestException as e:
-            if self.debug_http:
-                cost_ms = int((time.monotonic() - start) * 1000)
-                print(f"{'[HTTP]':<15}: {method} {url} 请求失败（{cost_ms}ms）: {e}")
+            # 即使不打开 debug_http，也输出最关键的失败信息（避免 cron 里只有“登录失败”）。
+            cost_ms = int((time.monotonic() - start) * 1000)
+            print(f"{'[HTTP]':<15}: {method} {url} 请求失败（{cost_ms}ms）: {e}")
             raise
     
     def initialize(self) -> bool:

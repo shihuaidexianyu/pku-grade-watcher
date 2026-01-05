@@ -78,6 +78,8 @@ def main():
         data_file=config.get("data_file", "course_data.json"),
         request_timeout=request_timeout,
         debug_http=bool(config.get("debug_http", False)),
+        max_retries=int(config.get("max_retries", 3)),
+        backoff_factor=float(config.get("backoff_factor", 0.6)),
     )
     
     # 执行完整工作流程
