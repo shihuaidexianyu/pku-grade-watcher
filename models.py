@@ -4,6 +4,7 @@
 
 import json
 from typing import Dict, Set, List, Optional
+import math
 from dataclasses import dataclass, asdict
 from pathlib import Path
 
@@ -47,6 +48,58 @@ class Course:
     def to_dict(self):
         """转换为字典格式"""
         return asdict(self)
+
+    @staticmethod
+    def _parse_numeric_grade(grade: str) -> Optional[float]:
+        """把成绩字符串解析为数值分数。
+
+        - 支持整数/小数，如 "92"、"92.5"
+        - 对 "合格"/"通过" 等非数值成绩返回 None
+        """
+        if grade is None:
+            return None
+        s = str(grade).strip()
+        if not s:
+            return None
+        try:
+            return float(s)
+        except ValueError:
+            return None
+
+    @staticmethod
+    def gpa_from_grade(x: float) -> float:
+        """按公式计算 GPA。
+
+        GPA(x) = 4 - 3 * (100 - x)^2 / 1600
+        """
+        return 4.0 - 3.0 * ((100.0 - float(x)) ** 2) / 1600.0
+
+    def ensure_gpa(self, precision: int = 3) -> bool:
+        """若 gpa 为空且成绩可解析为数值，则按公式补全 gpa。
+
+        Returns:
+            bool: 是否发生了写入/变更。
+        """
+        current = "" if self.gpa is None else str(self.gpa).strip()
+        if current:
+            return False
+
+        x = self._parse_numeric_grade(self.grade)
+        if x is None:
+            return False
+
+        gpa_val = self.gpa_from_grade(x)
+
+        # 常见约束：GPA 通常落在 [0, 4]。公式在极端分数下可能小于 0。
+        # 这里做一个温和的截断，避免出现负数。
+        gpa_val = min(4.0, max(0.0, gpa_val))
+
+        if not math.isfinite(gpa_val):
+            return False
+
+        # 存储为字符串，保持与现有 JSON 结构一致
+        self.gpa = f"{gpa_val:.{int(precision)}f}".rstrip("0").rstrip(".")
+        return True
 
     @classmethod
     def from_dict(cls, data: dict):
@@ -188,6 +241,18 @@ class CourseManager:
     def get_all_courses(self) -> List[Course]:
         """获取所有课程列表"""
         return list(self.courses.values())
+
+    def ensure_all_gpa(self, precision: int = 3) -> int:
+        """为所有课程补齐 GPA（若可从数值成绩计算）。
+
+        Returns:
+            int: 被补齐/更新的课程数量。
+        """
+        updated = 0
+        for course in self.courses.values():
+            if course.ensure_gpa(precision=precision):
+                updated += 1
+        return updated
 
     def get_course_by_id(self, course_id: str) -> Optional[Course]:
         """根据课程ID获取课程（向后兼容，返回最新记录）"""

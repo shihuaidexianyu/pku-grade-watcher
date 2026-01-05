@@ -239,6 +239,10 @@ class GradeWatcher(requests.Session):
         updated_courses_list = []
         
         for course in new_courses:
+            # 新版接口可能不再返回 jd（绩点）；若为空且成绩为数值，则按公式补齐。
+            # 这样本地 course_data.json 与通知内容都能带上 gpa。
+            course.ensure_gpa()
+
             # 尝试添加到字典中
             should_notify, change_type = self.course_manager.add_course(course)
             
