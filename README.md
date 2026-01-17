@@ -5,7 +5,7 @@
 ## 特性
 
 - **自动监控**: 定期检查成绩更新
-- **多种通知方式**: 支持 SMTP 邮件通知、控制台输出
+- **多种通知方式**: 支持 SMTP 邮件通知、控制台输出、Ntfy 推送
 - **智能去重**: 自动处理重复修读的课程
 - **详细记录**: 记录历史成绩数据和变化
 - **易于配置**: 基于 YAML 的简单配置
@@ -53,7 +53,7 @@ password: your_password      # 您的密码
 data_file: course_data.json
 
 # 通知配置
-# 支持的通知类型：email, console, multi
+# 支持的通知类型：email, console, ntfy, multi
 
 # 方式1: SMTP 邮件通知（推荐）
 type: email
@@ -68,6 +68,15 @@ to_email: target@example.com
 
 # 方式2: 同时使用多种通知方式（邮件 + 控制台）
 # type: multi
+# enable_ntfy: true
+# ntfy_url: https://ntfy.sh
+# ntfy_topic: your_topic
+# ntfy_username: your_user
+# ntfy_password: your_password
+# ntfy_token: your_token
+# ntfy_priority: default
+# ntfy_timeout: 10
+# enable_email: true
 # console: true
 # smtp_server: smtp.qq.com
 # smtp_port: 587
@@ -80,6 +89,16 @@ to_email: target@example.com
 
 # 方式3: 控制台输出（用于测试）
 # type: console
+
+# 方式4: 仅 Ntfy 推送
+# type: ntfy
+# ntfy_url: https://ntfy.sh
+# ntfy_topic: your_topic
+# ntfy_username: your_user
+# ntfy_password: your_password
+# ntfy_token: your_token
+# ntfy_priority: default
+# ntfy_timeout: 10
 ```
 
 ### 运行程序
@@ -122,12 +141,36 @@ to_email: target@example.com
 - `ssl`：直接 SSL/TLS（常用 465）
 - `plain`：不加密（不推荐，仅用于内网/调试）
 
-### 2. 多种通知方式（邮件 + 控制台）
+### 2. Ntfy 推送
+
+适合手机推送与多设备订阅，支持自建 Ntfy 服务。
+
+```yaml
+type: ntfy
+ntfy_url: https://ntfy.sh
+ntfy_topic: your_topic
+ntfy_username: your_user
+ntfy_password: your_password
+ntfy_token: your_token
+ntfy_priority: default
+ntfy_timeout: 10
+```
+
+### 3. 多种通知方式（邮件 + 控制台 + Ntfy）
 
 可以同时配置多种通知方式：
 
 ```yaml
 type: multi
+enable_ntfy: true
+ntfy_url: https://ntfy.sh
+ntfy_topic: your_topic
+ntfy_username: your_user
+ntfy_password: your_password
+ntfy_token: your_token
+ntfy_priority: default
+ntfy_timeout: 10
+enable_email: true
 console: true
 smtp_server: smtp.qq.com
 smtp_port: 587
@@ -139,7 +182,7 @@ from_email: your_email@qq.com
 to_email: target@example.com
 ```
 
-### 3. 控制台输出
+### 4. 控制台输出
 
 用于调试和测试：
 
@@ -181,16 +224,14 @@ KEEP_PROXY=1
 
 `check.sh` 已支持在 cron 环境下运行（自动定位项目目录、用 uv 运行、避免重复并发执行）。
 
+## 安全说明
 
+- 所有数据均存储在本地，不会上传到第三方服务器
+- 密码仅用于登录教务系统，不会保存在明文日志中
+- 支持配置文件权限控制，保护敏感信息
+- 建议定期更改密码，并确保配置文件安全
 
-##  安全说明
-
--  所有数据均存储在本地，不会上传到第三方服务器
--  密码仅用于登录教务系统，不会保存在明文日志中
--  支持配置文件权限控制，保护敏感信息
--  建议定期更改密码，并确保配置文件安全
-
-##  功能说明
+## 功能说明
 
 ### 核心功能
 
@@ -207,7 +248,7 @@ KEEP_PROXY=1
 - **历史记录**: 保留完整的成绩变化历史
 - **数据备份**: 自动备份重要数据文件
 
-##  故障排除
+## 故障排除
 
 ### 常见问题
 

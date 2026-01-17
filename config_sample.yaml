@@ -27,7 +27,7 @@ max_retries: 3
 backoff_factor: 0.6
 
 # 通知配置
-# 支持的通知类型：email, console, multi
+# 支持的通知类型：email, console, ntfy, multi
 
 # 方式1: 只使用邮件通知（SMTP）
 type: email
@@ -42,6 +42,15 @@ to_email: target@example.com
 
 # 方式2: 同时使用多种通知方式（邮件 + 控制台）
 # type: multi
+# enable_ntfy: true
+# ntfy_url: https://ntfy.sh
+# ntfy_topic: your_topic
+# ntfy_username: your_user
+# ntfy_password: your_password
+# ntfy_token: your_token
+# ntfy_priority: default
+# ntfy_timeout: 10
+# enable_email: true
 # console: true
 # smtp_server: smtp.qq.com
 # smtp_port: 587
@@ -54,3 +63,13 @@ to_email: target@example.com
 
 # 方式3: 控制台输出（用于测试）
 # type: console
+
+# 方式4: 只使用 Ntfy 推送
+# type: ntfy
+# ntfy_url: https://ntfy.sh
+# ntfy_topic: your_topic
+# ntfy_username: your_user
+# ntfy_password: your_password
+# ntfy_token: your_token
+# ntfy_priority: default
+# ntfy_timeout: 10

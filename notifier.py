@@ -4,6 +4,7 @@
 
 import smtplib
 import ssl
+import requests
 from abc import ABC, abstractmethod
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
@@ -29,6 +30,83 @@ class BaseNotifier(ABC):
             bool: 发送是否成功
         """
         pass
+
+
+class NtfyNotifier(BaseNotifier):
+    """Ntfy 通知器（支持自定义服务器、鉴权与 Markdown）"""
+
+    def __init__(
+        self,
+        base_url: str,
+        topic: str,
+        username: Optional[str] = None,
+        password: Optional[str] = None,
+        token: Optional[str] = None,
+        priority: str = "default",
+        timeout: int = 10,
+    ):
+        self.base_url = (base_url or "https://ntfy.sh").rstrip("/")
+        self.topic = topic
+        self.username = username
+        self.password = password
+        self.token = token
+        self.priority = priority
+        self.timeout = int(timeout)
+
+    def _build_course_lines(self, course: Course) -> list[str]:
+        lines: list[str] = []
+
+        def _append(label: str, value: object):
+            val = "" if value is None else str(value).strip()
+            if val:
+                lines.append(f"{label}：{val}")
+
+        _append("课程", course.course_name)
+        _append("课程时间", course.term)
+        _append("学分", course.credit)
+        _append("百分制成绩", course.grade)
+        _append("GPA", course.gpa)
+
+        return lines
+
+    def send(self, title: str, content: str, course: Optional[Course] = None) -> bool:
+        """发送 Ntfy 通知"""
+        try:
+            url = f"{self.base_url}/{self.topic}"
+
+            headers = {
+                "Title": title,
+                "Priority": self.priority,
+                "Markdown": "yes",
+            }
+
+            if self.token:
+                headers["Authorization"] = f"Bearer {self.token}"
+
+            final_content = content
+            if course:
+                lines = self._build_course_lines(course)
+                if lines:
+                    final_content = "\n".join(lines)
+
+            auth = None
+            if self.username and self.password:
+                auth = (self.username, self.password)
+
+            response = requests.post(
+                url,
+                data=final_content.encode("utf-8"),
+                headers=headers,
+                auth=auth,
+                timeout=self.timeout,
+            )
+            response.raise_for_status()
+
+            print(f"Ntfy 通知发送成功: {title}")
+            return True
+        except Exception as e:
+            print(f"Ntfy 通知发送失败: {e}")
+            return False
 
 
 class EmailNotifier(BaseNotifier):
@@ -234,6 +312,23 @@ def create_notifier_from_config(config: Dict[str, Any]) -> Optional[BaseNotifier
     """根据配置创建通知器"""
     notifier_type = config.get('type', '').lower()
 
+    def _build_ntfy_notifier() -> Optional[NtfyNotifier]:
+        topic = config.get("ntfy_topic")
+        if not topic:
+            return None
+        return NtfyNotifier(
+            base_url=config.get("ntfy_url", "https://ntfy.sh"),
+            topic=topic,
+            username=config.get("ntfy_username"),
+            password=config.get("ntfy_password"),
+            token=config.get("ntfy_token"),
+            priority=config.get("ntfy_priority", "default"),
+            timeout=int(config.get("ntfy_timeout", 10)),
+        )
+
+    if notifier_type == 'ntfy':
+        return _build_ntfy_notifier()
+
     if notifier_type == 'email' and all(k in config for k in
         ['smtp_server', 'smtp_port', 'email_username', 'email_password', 'from_email', 'to_email']):
         return EmailNotifier(
@@ -253,8 +348,19 @@ def create_notifier_from_config(config: Dict[str, Any]) -> Optional[BaseNotifier
     elif notifier_type == 'multi':
         multi_notifier = MultiNotifier()
 
+        enable_email = config.get("enable_email")
+        if enable_email is None:
+            enable_email = all(k in config for k in ['smtp_server', 'smtp_port', 'email_username', 'email_password', 'from_email', 'to_email'])
+
+        enable_ntfy = bool(config.get("enable_ntfy"))
+
+        if enable_ntfy:
+            ntfy_notifier = _build_ntfy_notifier()
+            if ntfy_notifier:
+                multi_notifier.add_notifier(ntfy_notifier)
+
         # 添加邮件通知
-        if all(k in config for k in ['smtp_server', 'smtp_port', 'email_username', 
+        if enable_email and all(k in config for k in ['smtp_server', 'smtp_port', 'email_username', 
                                    'email_password', 'from_email', 'to_email']):
             multi_notifier.add_notifier(EmailNotifier(
                 smtp_server=config['smtp_server'],
